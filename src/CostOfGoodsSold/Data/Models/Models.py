@@ -33,7 +33,7 @@ class PurchaseRecord(NamedTuple):
 
 
 class TransferRecord(NamedTuple):
-    """Inventory Transfer record."""
+    """Inventory transfer transaction data container."""
     from_sku: str
     to_sku: str
     quantity: Decimal
