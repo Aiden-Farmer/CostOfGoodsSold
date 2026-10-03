@@ -36,7 +36,7 @@ def convert(element: Any, _type:Any):
             multi_type = [t for t in multi_type if t is not NoneType]
             print(multi_type)
         for t in multi_type:
-            with suppress(_CONVERSION_ERRORS):
+            with suppress(*(_CONVERSION_ERRORS)):
                 return converters[t](element)
         
         raise ValueError(f"{element!r} not a valid instance of any [{multi_type.__repr__}]")
@@ -104,7 +104,18 @@ def build_row(row, types, return_type: type[T]):
 
 class RowReader(Generic[T]):
     """
-    Reader that accepts 
+    Reader that accepts List|Tuple|Dict with map of indices|keys.
+
+    Usage:
+        reader = RowReader(NamedTuple subclass, mapping)
+        data = reader(List|Tuple|Dict)
+    Data will be a validated instance of NamedTuple subclass.
+    
+    params:
+        return_type: NamedTuple subclass, i.e. InventoryRecord | PurchaseRecord | SalesRecord.
+        mapping: dict[str, int|str] where key is NamedTuple field and value is index|key to access 
+            item in data container that RowReader will be passed.
+
     """
     def __init__(self, return_type: type[T], 
         mapping: dict[str, int|str]):
@@ -118,5 +129,5 @@ class RowReader(Generic[T]):
     def __call__(self, row) -> T: 
         try:
             return build_row(self._get(row), self._field_types, self.return_type)
-        except(ValueError, TypeError) as e:
+        except(_CONVERSION_ERRORS) as e:
             raise DataValidationError(f"row {row!r} could not be converted to {self.return_type}") from e
