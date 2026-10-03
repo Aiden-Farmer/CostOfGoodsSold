@@ -1,4 +1,0 @@
-from .Models import: 
-    SalesRecord,
-                     ]
-
