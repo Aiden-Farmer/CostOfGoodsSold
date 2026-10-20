@@ -1,4 +1,4 @@
-from src.CostOfGoodsSold.Data.Utils.Utils import RowReader, convert, _check_for_none, _cnv_datetime, _cnv_decimal, _cnv_int, _cnv_str, build_row, validate_mapping, DataValidationError
+from src.CostOfGoodsSold.Data.Utils.Utils import RowReader, convert, _check_for_none, _cnv_datetime, _cnv_decimal, _cnv_int, _cnv_str, build_row, validate_mapping, Mapping, DataValidationError
 
 
 from src.CostOfGoodsSold.Data.Models.Models import SalesRecord, InventoryRecord, SupportedSalesChannels
@@ -6,7 +6,6 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from types import NoneType
 import pytest
-
 
 class TestConverters:
     def test_cnv_str_raises_on_empty_str(self):
@@ -47,3 +46,15 @@ class TestValidateMapping:
     def test_validate_mapping_raises_DataValidationError_on_bad_mapping(self):
         mapping = {"sku": 0, "quantity":1, "not_channel": 2}
         validate_mapping(SalesRecord, mapping)
+
+class TestRowReader:
+    def test_row_reader_returns_SalesRecords(self):
+        mapping = {"sku": 0, "quantity": 1, "channel": 2}
+        data = ["sku-1", "10", "Etsy"]        
+        reader = RowReader(SalesRecord, mapping)
+        output = reader(data)
+       
+        assert isinstance(output, SalesRecord)
+        assert output.sku == "sku-1"
+        assert output.quantity == Decimal(10)
+        assert output.channel == SupportedSalesChannels.Etsy

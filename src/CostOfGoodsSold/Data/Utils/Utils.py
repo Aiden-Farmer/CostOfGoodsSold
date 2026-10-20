@@ -5,6 +5,9 @@ from operator import itemgetter
 from contextlib import suppress
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
+from collections.abc import Mapping
+
+from src.CostOfGoodsSold.Data.Models import SupportedSalesChannels
 
 T = TypeVar("T", bound=NamedTuple)
 
@@ -15,7 +18,7 @@ _CONVERSION_ERRORS = ValueError, KeyError, InvalidOperation
 class DataValidationError(Exception):
     ...
 
-def convert(element: Any, _type:Any): 
+def convert(element: Any, _type:Any) -> Any:
     """Converts element to datatype, caller responsible for handling ValueErrors""" 
  
     converters = {
@@ -23,6 +26,7 @@ def convert(element: Any, _type:Any):
         str: _cnv_str,
         datetime: _cnv_datetime,
         Decimal: _cnv_decimal,
+        SupportedSalesChannels: _cnv_SupportedSalesChannel
     }
     def convert_union(): 
         multi_type = get_args(_type)
@@ -79,13 +83,20 @@ def _check_for_none(o) -> bool:
 
     return False
 
+def _cnv_SupportedSalesChannel(o) -> SupportedSalesChannels:
+    if o is None:
+        raise DataValidationError("SupportedSalesChannels must not be None")
+    return SupportedSalesChannels[o]
+
+
+
 ###############################################################################
 #
 #                       Reader methods
 #
 ###############################################################################
 
-def validate_mapping(return_type: type[T], mapping: dict[str, int|str]) -> bool:
+def validate_mapping(return_type: type[T], mapping: Mapping[str, int | str]) -> bool:
     """Validates that all elements of NamedTuple return type are present in
     mapping and data, and that data types match."""
     for f in return_type._fields:
@@ -94,7 +105,11 @@ def validate_mapping(return_type: type[T], mapping: dict[str, int|str]) -> bool:
     return True
 
 def build_row(row, types, return_type: type[T]): 
-        return return_type._make(*(convert(item, _type) for item, _type in zip(row, types)))
+    hopefully_a_row = [convert(item, _type) for item, _type in zip(row, types)]
+    print(hopefully_a_row)
+    if not hopefully_a_row:
+        raise ValueError
+    return  return_type._make(*hopefully_a_row)
 
 ###############################################################################
 #
@@ -118,7 +133,7 @@ class RowReader(Generic[T]):
 
     """
     def __init__(self, return_type: type[T], 
-        mapping: dict[str, int|str]):
+        mapping: Mapping[str, int|str]):
 
         validate_mapping(return_type, mapping)
         self.return_type = return_type
