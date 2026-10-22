@@ -58,3 +58,26 @@ class TestRowReader:
         assert output.sku == "sku-1"
         assert output.quantity == Decimal(10)
         assert output.channel == SupportedSalesChannels.Etsy
+
+    def test_row_reader_returns_InventoryRecords(self) -> None:
+        mapping = {"sku": 0, "quantity": 1, "date": 2}
+        data = ["sku-1", "10", "2025-01-01"]
+        reader = RowReader(InventoryRecord, mapping)
+        output = reader(data)
+
+
+        assert isinstance(output, InventoryRecord)
+        assert output.sku == "sku-1"
+        assert output.quantity == Decimal(10)
+        assert output.date == datetime(2025, 1, 1)
+
+
+    def tests_inventory_row_reader_handles_mm_slash_dd_slash_yyyy_format(self):
+        mapping = {"sku": 0, "quantity": 1, "date": 2}
+        data = ["sku-1", "10", "01/01/2025"]
+        reader = RowReader(InventoryRecord, mapping)
+        output = reader(data)
+
+        assert output.date == datetime(2025, 1, 1)
+
+

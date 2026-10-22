@@ -57,7 +57,23 @@ def convert(element: Any, _type:Any) -> Any:
 #                                                                              #
 ################################################################################
 
+def _is_mm_dd_yyyy_date_str(o: str):
+    parts = o.split("/")
+    
+    # Check that there are three parts: mm, dd, yyyy
+    if not len(parts) == 3:
+        return False
+
+    # Check that final part is 4 char long: yyyy 
+    if not len(parts[2]) == 4:
+        return False
+
+    # Meets conditions
+    return True
+
+
 def _cnv_datetime(element) -> datetime:
+    if type(element) == str and _is_mm_dd_yyyy_date_str(element): return datetime.strptime(element, "%m/%d/%Y")
     if type(element) == int: return datetime.fromordinal(element) 
     if type(element) == str: return datetime.fromisoformat(element) 
     if type(element) == tuple and len(element) == 3: return datetime.fromisocalendar(*(element)) 
@@ -105,11 +121,8 @@ def validate_mapping(return_type: type[T], mapping: Mapping[str, int | str]) -> 
     return True
 
 def build_row(row, types, return_type: type[T]): 
-    hopefully_a_row = [convert(item, _type) for item, _type in zip(row, types)]
-    print(hopefully_a_row)
-    if not hopefully_a_row:
-        raise ValueError
-    return  return_type._make(*hopefully_a_row)
+    return return_type._make([convert(item, _type) for item, _type in zip(row, types)]
+)
 
 ###############################################################################
 #
