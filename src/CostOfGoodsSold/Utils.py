@@ -1,55 +1,62 @@
-from typing import (NamedTuple, TypeVar, Generic, Any, get_type_hints,
-get_origin, get_args)
-from types import NoneType, UnionType 
-from operator import itemgetter
+from collections.abc import Mapping
 from contextlib import suppress
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from collections.abc import Mapping
+from operator import itemgetter
+from types import NoneType, UnionType
+from typing import (
+    Any,
+    NamedTuple,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
+from typing_extensions import TypeForm
 
-from src.CostOfGoodsSold.Data.Models import SupportedSalesChannels
+from .Errors import DataValidationError
+from .Models import SupportedSalesChannels
 
-T = TypeVar("T", bound=NamedTuple)
+
+###############################################################################
+#
+#                           Constants
 
 _EMPTY_STR_IS_NONE = True 
-
 _CONVERSION_ERRORS = ValueError, KeyError, InvalidOperation
 
-class DataValidationError(Exception):
-    ...
+###############################################################################
 
-def convert(element: Any, _type:Any) -> Any:
+def convert[T](element: Any, _type: TypeForm[T]) -> T:
     """Converts element to datatype, caller responsible for handling ValueErrors""" 
  
     converters = {
-        int: _cnv_int,
         str: _cnv_str,
         datetime: _cnv_datetime,
-        Decimal: _cnv_decimal,
         SupportedSalesChannels: _cnv_SupportedSalesChannel
     }
-    def convert_union(): 
+    def convert_union() -> TypeForm[T]: 
         multi_type = get_args(_type)
-        print(multi_type)        
         # check for None first to capture '' str.
         if NoneType in multi_type:
             if _check_for_none(element): 
-                return None
+                return None # noqa
 
             # remove NoneType from multi_type
             multi_type = [t for t in multi_type if t is not NoneType]
-            print(multi_type)
         for t in multi_type:
             with suppress(*(_CONVERSION_ERRORS)):
-                return converters[t](element)
-        
+                if t in converters:
+                    return converters[t](element)
+                return t(element) 
         raise ValueError(f"{element!r} not a valid instance of any [{multi_type.__repr__}]")
 
     if get_origin(_type) is UnionType:
         return convert_union()
 
-    return converters[_type](element)
+    if _type in converters: 
+        return converters[_type](element)
 
+    return _type(element)
 
 ################################################################################
 #                                                                              #
@@ -57,44 +64,35 @@ def convert(element: Any, _type:Any) -> Any:
 #                                                                              #
 ################################################################################
 
-def _is_mm_dd_yyyy_date_str(o: str):
-    parts = o.split("/")
-    
-    # Check that there are three parts: mm, dd, yyyy
-    if not len(parts) == 3:
-        return False
-
-    # Check that final part is 4 char long: yyyy 
-    if not len(parts[2]) == 4:
-        return False
-
-    # Meets conditions
-    return True
-
-
 def _cnv_datetime(element) -> datetime:
+
+    def _is_mm_dd_yyyy_date_str(o: str):
+        parts = o.split("/")
+        
+        # Check that there are three parts: mm, dd, yyyy
+        if not len(parts) == 3:
+            return False
+
+        # Check that final part is 4 char long: yyyy 
+        if not len(parts[2]) == 4:
+            return False
+
+        # Meets conditions
+        return True
+
     if type(element) == str and _is_mm_dd_yyyy_date_str(element): return datetime.strptime(element, "%m/%d/%Y")
     if type(element) == int: return datetime.fromordinal(element) 
     if type(element) == str: return datetime.fromisoformat(element) 
     if type(element) == tuple and len(element) == 3: return datetime.fromisocalendar(*(element)) 
     raise ValueError("%s not a valid date format",element) 
 
-def _cnv_int(o) -> int:
-    return int(o)
-
 def _cnv_str(o) -> str:
     if o == "":
         raise ValueError("Empty string is not considered valid string")
     return str(o)
 
-def _cnv_decimal(o) -> Decimal:
-    return Decimal(o)
-
 def _check_for_none(o) -> bool:
-    if o is None:
-        return True
-
-    elif _EMPTY_STR_IS_NONE and o == "":
+    if o is None or _EMPTY_STR_IS_NONE and o == "":
         return True
 
     return False
@@ -112,15 +110,14 @@ def _cnv_SupportedSalesChannel(o) -> SupportedSalesChannels:
 #
 ###############################################################################
 
-def validate_mapping(return_type: type[T], mapping: Mapping[str, int | str]) -> bool:
-    """Validates that all elements of NamedTuple return type are present in
-    mapping and data, and that data types match."""
+def validate_mapping[T: NamedTuple](return_type: type[T], mapping: Mapping[str, int | str]) -> bool:
+    """Validates that all elements of NamedTuple return type are present in mapping and data, and that data types match."""
     for f in return_type._fields:
         if f not in mapping:
             return False
     return True
 
-def build_row(row, types, return_type: type[T]): 
+def build_row[T: NamedTuple](row, types, return_type: type[T]): 
     return return_type._make([convert(item, _type) for item, _type in zip(row, types)]
 )
 
@@ -130,7 +127,7 @@ def build_row(row, types, return_type: type[T]):
 #
 ###############################################################################
 
-class RowReader(Generic[T]):
+class RowReader[T: NamedTuple]:
     """
     Reader that accepts List|Tuple|Dict with map of indices|keys.
 

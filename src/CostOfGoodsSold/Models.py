@@ -1,7 +1,8 @@
-from typing import NamedTuple
 from datetime import datetime
-from enum import Enum, auto
 from decimal import Decimal
+from enum import Enum, auto
+from typing import NamedTuple
+
 
 class SupportedSalesChannels(Enum):
     Shopify = auto()
